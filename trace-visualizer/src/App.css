@@ -1,0 +1,147 @@
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.section {
+  background-color: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.45);
+}
+
+.section h2 {
+  margin-top: 0;
+  font-size: 1.25rem;
+  color: #e2e8f0;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.select {
+  background-color: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  min-width: 200px;
+}
+
+.stats {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+  color: #cbd5f5;
+}
+
+.table-wrapper {
+  max-height: 420px;
+  overflow: auto;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 400px;
+}
+
+th,
+td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  vertical-align: top;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  background-color: rgba(15, 23, 42, 0.95);
+  z-index: 1;
+  color: #cbd5f5;
+}
+
+.reg-name {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  color: #93c5fd;
+  white-space: nowrap;
+}
+
+.reg-value {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #f8fafc;
+}
+
+.vector-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+}
+
+.vector-table td {
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  padding: 0.35rem 0.45rem;
+  text-align: center;
+  min-width: 70px;
+}
+
+.empty-state {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  text-align: center;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px dashed rgba(148, 163, 184, 0.4);
+  border-radius: 10px;
+  color: #94a3b8;
+}
+
+.file-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 160ms ease;
+}
+
+.file-input:hover {
+  border-color: rgba(96, 165, 250, 0.75);
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.35);
+}
+
+.file-input input {
+  display: none;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  background: rgba(59, 130, 246, 0.18);
+  color: #bfdbfe;
+  font-size: 0.8rem;
+}
