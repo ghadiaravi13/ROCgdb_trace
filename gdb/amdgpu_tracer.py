@@ -12,6 +12,13 @@ import gdb
 import json
 import time
 
+import os
+# Redirect stderr to suppress ROCgdb messages
+old_stderr = sys.stderr
+sys.stderr = open(os.devnull, 'w')
+
+REG_CHANGE_RECORD = {}
+
 
 def _is_gpu_thread(t: gdb.InferiorThread) -> bool:
     """Detect ROCm GPU wave threads."""
@@ -37,7 +44,7 @@ def _get_wave_id() -> int:
         return -1
 
 
-def _read_all_registers(frame: gdb.Frame) -> list[tuple[str, str]]:
+def _read_all_changed_registers(frame: gdb.Frame) -> list[tuple[str, str]]:
     regs: list[tuple[str, str]] = []
     arch = frame.architecture()
     try:
@@ -51,14 +58,22 @@ def _read_all_registers(frame: gdb.Frame) -> list[tuple[str, str]]:
         name = str(rn).strip()
         if not name:
             continue
+        # if frame.name() in REG_CHANGE_RECORD and rn not in REG_CHANGE_RECORD[frame.name()]:
+        #     gdb.write(f"[amdgpu_trace] Skipping unchanged register: {name}\n")
+        #     continue
         try:
             value = frame.read_register(name)
-            try:
-                regs.append((name, value.format_string("x")))
-            except Exception:
-                regs.append((name, str(value)))
+            if name not in REG_CHANGE_RECORD or str(value) != REG_CHANGE_RECORD[name]:
+                REG_CHANGE_RECORD[name] = str(value)
+                try:
+                    regs.append((name, value.format_string("x")))
+                except Exception:
+                    regs.append((name, str(value)))
         except Exception:
             continue
+
+        # Clear record of this register change after reading
+        # REG_CHANGE_RECORD[frame.name()].remove(rn) if frame.name() in REG_CHANGE_RECORD and rn in REG_CHANGE_RECORD[frame.name()] else None
     return regs
 
 
@@ -87,6 +102,17 @@ def _at_endpgm(disasm_text: str) -> bool:
 
 def _select_thread(t: gdb.InferiorThread):
     t.switch()
+
+# def reg_change_handler(event):
+#     gdb.write(f"[amdgpu_trace] reg_change_handler invoked for frame {getattr(event.frame, 'name', lambda: '<unknown>')()} regnum={getattr(event, 'regnum', '<unknown>')}\n")
+#     if not (hasattr(event, "frame") or hasattr(event, "regnum")):
+#         raise gdb.GdbError("reg_change_handler: event missing required attributes")
+#     else:
+#         if event.frame.name() in REG_CHANGE_RECORD:
+#             REG_CHANGE_RECORD[event.frame.name()].append(event.regnum)
+#         else:
+#             gdb.write(f"[amdgpu_trace] Register change detected in frame {event.frame.name()}: regnum={event.regnum}\n")
+#             REG_CHANGE_RECORD[event.frame.name()] = [event.regnum]
 
 
 class AMDGPUTrace(gdb.Command):
@@ -119,14 +145,29 @@ class AMDGPUTrace(gdb.Command):
 
         gdb.write(f"[amdgpu_trace] kernel={kernel} out={out_path} max_steps={max_steps}\n")
 
+        # Suppress ALL output
         gdb.execute("set pagination off", to_string=True)
         gdb.execute("set breakpoint pending on", to_string=True)
-        gdb.execute(f"break {kernel}")
-        gdb.execute("continue")
+        gdb.execute("set verbose off", to_string=True)
+        gdb.execute("set trace-commands off", to_string=True)
+        gdb.execute("set print thread-events off", to_string=True)
+        gdb.execute("set print inferior-events off", to_string=True)
+        
+        # Redirect GDB output to /dev/null
+        gdb.execute("set logging file /dev/null", to_string=True)
+        gdb.execute("set logging redirect on", to_string=True)
+        gdb.execute("set logging overwrite on", to_string=True)
+        gdb.execute("set logging enabled on", to_string=True)
+        
+        gdb.execute("set step-mode off", to_string=True)
+        gdb.execute("set confirm off", to_string=True)
+
+        gdb.execute(f"break {kernel}", to_string=True)#, quiet=True=True)
+        gdb.execute("continue", to_string=True)#, quiet=True=True)
 
         scheduler_locked = False
         try:
-            gdb.execute("set scheduler-lock on", to_string=True)
+            gdb.execute("set scheduler-lock on", to_string=True)#, to_string=True)#, quiet=True=True)
             scheduler_locked = True
         except gdb.error:
             gdb.write("[amdgpu_trace] Warning: failed to enable scheduler-lock.\n")
@@ -151,7 +192,7 @@ class AMDGPUTrace(gdb.Command):
                 json.dump(trace_data, outf, indent=2)
             if scheduler_locked:
                 try:
-                    gdb.execute("set scheduler-lock off", to_string=True)
+                    gdb.execute("set scheduler-lock off", to_string=True)#, to_string=True)#, quiet=True=True)
                 except gdb.error:
                     pass
             gdb.write(f"[amdgpu_trace] Trace complete. Output: {out_path}\n")
@@ -171,7 +212,7 @@ class AMDGPUTrace(gdb.Command):
                 json.dump(trace_data, outf, indent=2)
             if scheduler_locked:
                 try:
-                    gdb.execute("set scheduler-lock off", to_string=True)
+                    gdb.execute("set scheduler-lock off", to_string=True)#, quiet=True=True)
                 except gdb.error:
                     pass
             gdb.write(f"[amdgpu_trace] Trace complete. Output: {out_path}\n")
@@ -179,6 +220,9 @@ class AMDGPUTrace(gdb.Command):
 
         try:
             for i, t in enumerate(gpu_threads):
+                #reset register change record
+                REG_CHANGE_RECORD.clear()
+
                 num_alive = sum(1 for tt in gpu_threads if _wave_alive(tt))
                 gdb.write(
                     f"[amdgpu_trace] Tracing wave {i + 1}/{len(gpu_threads)} (alive waves remaining: {num_alive})...\n"
@@ -210,10 +254,11 @@ class AMDGPUTrace(gdb.Command):
                     if wave_id_value is None:
                         wave_id_value = wid
 
-                    regs = _read_all_registers(frame)
+                    regs = _read_all_changed_registers(frame)
                     wave_steps.append(
                         {
                             "step_index": steps,
+                            "frame_name": frame.name(),
                             "pc": f"0x{pc_val:x}",
                             "insn": disasm_text,
                             "registers": [
@@ -227,7 +272,7 @@ class AMDGPUTrace(gdb.Command):
                         break
 
                     try:
-                        gdb.execute("stepi", to_string=True)
+                        gdb.execute("stepi", to_string=True)#, quiet=True=True)
                     except gdb.error:
                         break
 
@@ -244,9 +289,10 @@ class AMDGPUTrace(gdb.Command):
         finally:
             if scheduler_locked:
                 try:
-                    gdb.execute("set scheduler-lock off", to_string=True)
+                    gdb.execute("set scheduler-lock off", to_string=True)#, quiet=True=True)
                 except gdb.error:
                     pass
+            sys.sterr = old_stderr  # Restore stderr
 
         with open(out_path, "w", encoding="utf-8") as outf:
             json.dump(trace_data, outf, indent=2)

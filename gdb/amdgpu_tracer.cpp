@@ -1,10 +1,14 @@
 // amdgpu_trace_cpp.cpp
-// Build (Linux): g++ -std=c++17 amdgpu_trace_cpp.cpp -lamd-dbgapi -lelf -o amdgpu_trace_cpp
+// Build (Linux): g++ -std=c++17 amdgpu_tracer.cpp -lamd-dbgapi -lelf -o amdgpu_trace_cpp
 // Usage: ./amdgpu_trace_cpp <pid> "my_kernel" <max_steps=0>
 // example usage: ./amdgpu_trace_cpp <exe|pid> <kernel_symbol> <max_steps> out=/tmp/trace.jsonl [args...]
 
 
 #include <amd-dbgapi/amd-dbgapi.h>
+#include <hsa/hsa.h>
+#include <hsa/hsa_api_trace.h>
+#include <hsa/hsa_ext_amd.h>
+
 #include <elf.h>
 #include <fcntl.h>
 #include <sys/uio.h>
